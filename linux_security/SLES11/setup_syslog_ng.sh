@@ -15,7 +15,7 @@ function restart_syslog(){
 if [ -w ${f_syslog} ]; then
     cp ${f_syslog}{,.bak.$(date +%s)}
     # authpriv.*
-    if [ $(grep -E '^filter.*f_authpriv_info.*\{ level\(info\) and facility\(authpriv\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
+    if [ $(grep -E '^filter.*f_authpriv_info.*\{ facility\(authpriv\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
         echo 'filter f_authpriv_info { facility(authpriv); };' >> ${f_syslog}
     fi
     if [ $(grep -E '^destination.*authpriv_info.*\{ file\(\"\/var\/log\/authpriv_info\"\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
@@ -48,8 +48,8 @@ if [ -w ${f_syslog} ]; then
     if [ $(grep -E '^filter.*f_somcprobe.*\{ level\(err\,crit\,alert\,emerg\) and not facility\(auth\) or level\(info\,notice\,warn\,err\,crit\,alert\,emerg\) and facility\(auth\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
         echo 'filter f_somcprobe { level(err,crit,alert,emerg) and not facility(auth) or level(info,notice,warn,err,crit,alert,emerg) and facility(auth); };' >> ${f_syslog}
     fi
-    if [ $(grep -E '^destination.*d_somcprobe.*\{ udp\(\"10\.191\.18\.246\" port\(514\)' ${f_syslog} |wc -l) -eq 0 ]; then
-        echo 'destination d_somcprobe { udp("1.1.1.1" port(514) template("<$PRI>ISMP_SUSE [$FULLDATE] [$HOST] [$FACILITY.$LEVEL] $MSG\n"));};' >> ${f_syslog}
+    if [ $(grep -E "^destination.*d_somcprobe.*\{ udp\(\"${f_remotelog}\" port\(514\)" ${f_syslog} |wc -l) -eq 0 ]; then
+        echo "destination d_somcprobe { udp(\"${f_remotelog}\" port(514) template(\"<\$PRI>ISMP_SUSE [\$FULLDATE] [\$HOST] [\$FACILITY.\$LEVEL] \$MSG\\n\"));};" >> ${f_syslog}
     fi
     if [ $(grep -E '^log.*\{ source\(src\)\; filter\(f_somcprobe\)\; destination\(d_somcprobe\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
         echo 'log { source(src); filter(f_somcprobe); destination(d_somcprobe); };' >> ${f_syslog}
@@ -58,6 +58,9 @@ if [ -w ${f_syslog} ]; then
     if [ -w ${f_logrotate} ]; then
         if [ $(grep -E '\/var\/log\/cron' ${f_logrotate} |wc -l) -eq 0 ]; then
             sed -i 's/\/var\/log\/messages/\/var\/log\/messages \/var\/log\/cron/g' ${f_logrotate}
+        fi
+        if [ $(grep -E '\/var\/log\/errors' ${f_logrotate} |wc -l) -eq 0 ]; then
+            sed -i 's/\/var\/log\/messages/\/var\/log\/messages \/var\/log\/errors/g' ${f_logrotate}
         fi
     fi
     # reload service

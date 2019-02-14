@@ -38,6 +38,9 @@ if [ -w ${f_rsyslog} ]; then
         if [ $(grep -E '\/var\/log\/secure' ${f_logrotate} |wc -l) -eq 0 ]; then
             sed -i 's/\/var\/log\/messages/\/var\/log\/messages \/var\/log\/secure/g' ${f_logrotate}
         fi
+        if [ $(grep -E '\/var\/log\/errors' ${f_logrotate} |wc -l) -eq 0 ]; then
+            sed -i 's/\/var\/log\/messages/\/var\/log\/messages \/var\/log\/errors/g' ${f_logrotate}
+        fi
     fi
     # reload service
     restart_rsyslog
