@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 systemctl disable telnet.socket
 systemctl status telnet.socket

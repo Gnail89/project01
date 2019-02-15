@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_sshdcfg='/etc/ssh/sshd_config'
 f_findfile=('.rhosts' 'hosts.equiv' '.netrc')

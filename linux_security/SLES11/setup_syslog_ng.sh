@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_syslog='/etc/syslog-ng/syslog-ng.conf'
 f_remotelog='1.1.1.1'

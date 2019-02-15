@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_ftpcfg='/etc/vsftpd.conf'
 f_ftpusers='/etc/ftpusers'

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_rsyslog='/etc/rsyslog.conf'
 f_remotelog='1.1.1.1'

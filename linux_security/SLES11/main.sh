@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 basepath=$(cd `dirname $0`;pwd)
+. ${basepath}/setenv.sh
 
 . ${basepath}/../common/passwd_lock.sh
 . ${basepath}/../common/user_lock.sh

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_sysbanner='Authorized users only. All activity may be monitored and reported'
 

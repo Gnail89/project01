@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_profile='/etc/profile'
 f_timeout='export TMOUT=180'

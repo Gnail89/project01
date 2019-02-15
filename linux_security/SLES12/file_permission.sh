@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 p_400_list=('/etc/shadow')
 p_600_list=('/var/log/messages' '/var/log/secure' '/var/log/mail' '/var/log/mail.err' '/var/log/mail.info' '/var/log/mail.warn' '/var/log/cron' '/var/log/spooler' '/var/log/boot.log')

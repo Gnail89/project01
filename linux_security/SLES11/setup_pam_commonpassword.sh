@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_pamcommonpwd='/etc/pam.d/common-password'
 f_pampasswd='/etc/pam.d/passwd'
@@ -36,6 +35,6 @@ EOF
     if [ $(cat ${f_pampasswd} |grep '^password' |grep -E 'pam_cracklib.so|pam_unix.so|dcredit|ucredit|lcredit|ocredit|minlen|md5|remember' |wc -l) -ne 0 ]; then
         cp ${f_pampasswd}{,.bak.$(date +%s)}
         sed -i '/^password.*requisite.*pam_cracklib.so/d' ${f_pampasswd}
-        sed -i '/^password.*sufficient.*pam_unix.so/d' ${f_pampasswd}
+        sed -i '/^password.*pam_unix.so/d' ${f_pampasswd}
     fi
 fi

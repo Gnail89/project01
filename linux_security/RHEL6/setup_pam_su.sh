@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-. ./setenv.sh
 
 f_pamsu='/etc/pam.d/su'
 f_pamsystemauth='/etc/pam.d/system-auth'
