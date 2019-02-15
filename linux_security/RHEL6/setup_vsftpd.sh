@@ -30,6 +30,6 @@ if [ -w ${f_ftpcfg} ]; then
     if [ $(grep -E '^ftpd_banner=' ${f_ftpcfg} |wc -l) -eq 0 ]; then
         echo "ftpd_banner=${f_ftpbanner}" >> ${f_ftpcfg}
     else
-        sed -i "s/^ftpd_banner=/ftpd_banner=${f_ftpbanner}/g" ${f_ftpcfg}
+        sed -i "s/^ftpd_banner=.*/ftpd_banner=${f_ftpbanner}/g" ${f_ftpcfg}
     fi
 fi
