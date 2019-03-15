@@ -14,12 +14,17 @@ expect {
     "(yes/no)?" {
         send "yes\n"
         expect "*assword:" {
-            send "$password\r"
+            send -- "$password\r"
         }
     }
     "*assword:" {
-        send "$password\r"
+        send -- "$password\r"
     }
 }
 expect "100%"
+
+# expect "*\\\$" {send "sudo cat /etc/shadow &>/dev/null;\[ \$? -eq 0 ] && echo 'status_ok'\r"}
+# expect "*\\\$" {send "sudo cat /etc/sudoers |egrep -v '^#|^$' |grep 'root'\r"}
+# expect "*\\\$" {send "exit\r"}
+
 expect eof
