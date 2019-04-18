@@ -77,8 +77,9 @@ def Add_Crontab_Policy():
 
 def Setup_ZabbixAgentd():
     if os.path.exists(zabbix_agentd_dlfilename):
-        setup_status = commands.getstatusoutput("tar -C /usr/local/ -zxf " +
-                                                zabbix_agentd_dlfilename)
+        setup_status = commands.getstatusoutput(
+            "tar -C " + zabbix_agentd_install_dir + " -zxf " +
+            zabbix_agentd_dlfilename)
         if setup_status[0] == 0:
             os.remove(zabbix_agentd_dlfilename)
             setup_status = commands.getstatusoutput("chown -R " +
@@ -164,7 +165,8 @@ if __name__ == '__main__':
 
     zabbix_agentd_user = 'username'
     zabbix_agentd_dlfilename = 'zabbix_agentd_static.tar.gz'
-    zabbix_agentd_install_path = '/usr/local/zabbix_agentd'
+    zabbix_agentd_install_dir = '/usr/local'
+    zabbix_agentd_install_path = zabbix_agentd_install_dir + '/zabbix_agentd'
     zabbix_agentd_daemon_path = (
         zabbix_agentd_install_path + '/zabbix_agentd_daemon.sh')
     zabbix_crond_policy = ('*/10 * * * * /bin/sh ' + zabbix_agentd_daemon_path
