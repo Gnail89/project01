@@ -4,7 +4,7 @@
 import os
 import sys
 import platform
-import urllib
+# import urllib
 import urllib2
 import commands
 import random
@@ -28,7 +28,7 @@ def Download_App():
 
 
 def Add_Crontab_Policy():
-    crontab_comm = "crontab -l -u " + zabbix_agentd_user
+    crontab_comm = "crontab -l"
     crontab_status = commands.getstatusoutput(crontab_comm)
     crontab_tag = 0
     if crontab_status[0] == 0:
@@ -48,8 +48,7 @@ def Add_Crontab_Policy():
                 f.write(zabbix_crond_policy + '\n')
                 f.close()
             if os.path.exists(crontab_tmpfile):
-                commands.getstatusoutput("crontab -u " + zabbix_agentd_user +
-                                         " " + crontab_tmpfile)
+                commands.getstatusoutput("crontab " + crontab_tmpfile)
             else:
                 print(crontab_tmpfile + " file not found")
                 sys.exit()
@@ -63,8 +62,7 @@ def Add_Crontab_Policy():
             f.write(zabbix_crond_policy + '\n')
             f.close()
         if os.path.exists(crontab_tmpfile):
-            commands.getstatusoutput("crontab -u " + zabbix_agentd_user + " " +
-                                     crontab_tmpfile)
+            commands.getstatusoutput("crontab " + crontab_tmpfile)
         else:
             print(crontab_tmpfile + " file not found")
             sys.exit()
@@ -125,47 +123,82 @@ def Setup_ZabbixAgentd_cfgfile(setup_cfgfile_tag, setup_cfgfile_value):
 
 
 def VerifyUser():
-    verify_status = commands.getstatusoutput('id ' + zabbix_agentd_user)
-    if verify_status[0] != 0:
+    if commands.getstatusoutput('id ' + zabbix_agentd_user)[0] != 0:
         print(zabbix_agentd_user + ' user does not exist')
+        sys.exit()
+    if commands.getstatusoutput('whoami')[1] != zabbix_agentd_user:
+        print('Current user is not ' + zabbix_agentd_user)
         sys.exit()
 
 
 def HelpInfo():
-    print('''optional arguments:
-    <public,internal>
+    print('usage: ' + sys.argv[0] + ' [option...]')
+    print('''Options:
+    -n <public,internal>
                           Choose network type: public, internal
-    [offline]             Offline installation option, current directory
-                          installation''')
+    -s <172.16.1.1>
+                          Zabbix server/proxy access address
+    -O                    Offline install''')
 
 
-def main():
-    VerifyUser()
-    host_ipaddr = Get_OS_IPAddr(network_opt)
-    if offline_opt != 'offline':
-        Download_App()
-    Setup_ZabbixAgentd()
-    Setup_ZabbixAgentd_cfgfile(zabbix_agentd_cfgfile_hostname, host_ipaddr)
-    Setup_ZabbixAgentd_cfgfile(zabbix_agentd_cfgfile_sourceip, host_ipaddr)
-    Add_Crontab_Policy()
+def vars_def():
+    global network_ack
+    global network_opt
+    global acc_server_ack
+    global acc_server_opt
+    global offline_ack
+    global offline_opt
+    global zabbix_agentd_user
+    global zabbix_agentd_dlfilename
+    global zabbix_agentd_install_dir
+    global zabbix_agentd_install_path
+    global zabbix_agentd_daemon_path
+    global zabbix_crond_policy
+    global zabbix_agentd_cfgfile_path
+    global zabbix_agentd_dlurl
+    global zabbix_agentd_cfgfile_hostname
+    global zabbix_agentd_cfgfile_sourceip
+    global zabbix_agentd_cfgfile_serverip
 
+    OptionList = sys.argv[1:]
+    for num in range(0, len(OptionList)):
+        if OptionList[num] == '-n':
+            network_ack = True
+            network_opt = OptionList[num + 1]
+        elif OptionList[num] == '-s':
+            acc_server_ack = True
+            acc_server_opt = OptionList[num + 1]
+        elif OptionList[num] == '-O':
+            offline_ack = True
+            offline_opt = 'offline'
 
-if __name__ == '__main__':
-    os.chdir(sys.path[0])
-    network_opt = ''
-    offline_opt = ''
-    try:
-        network_opt = sys.argv[1]
-    except BaseException:
-        pass
-    try:
-        offline_opt = sys.argv[2]
-    except BaseException:
-        pass
+    if network_ack is True:
+        if network_opt == 'public':
+            zabbix_agentd_dlurl = (
+                'http://mirrors.163.com/centos/7/isos/x86_64/0_README.txt')
+        elif network_opt == 'internal':
+            zabbix_agentd_dlurl = (
+                'http://mirrors.163.com/centos/7/isos/x86_64/0_README.txt')
+        else:
+            HelpInfo()
+            sys.exit()
+    else:
+        HelpInfo()
+        sys.exit()
+
+    if acc_server_ack is True:
+        if acc_server_opt is not None:
+            pass
+        else:
+            HelpInfo()
+            sys.exit()
+    else:
+        HelpInfo()
+        sys.exit()
 
     zabbix_agentd_user = 'username'
     zabbix_agentd_dlfilename = 'zabbix_agentd_static.tar.gz'
-    zabbix_agentd_install_dir = '/usr/local'
+    zabbix_agentd_install_dir = commands.getstatusoutput('echo ~')[1]
     zabbix_agentd_install_path = zabbix_agentd_install_dir + '/zabbix_agentd'
     zabbix_agentd_daemon_path = (
         zabbix_agentd_install_path + '/zabbix_agentd_daemon.sh')
@@ -175,18 +208,41 @@ if __name__ == '__main__':
         zabbix_agentd_install_path + '/etc/zabbix_agentd.conf')
     zabbix_agentd_cfgfile_hostname = '%change_hostname%'
     zabbix_agentd_cfgfile_sourceip = '%change_sourceip%'
+    zabbix_agentd_cfgfile_serverip = '%change_serverip%'
 
-    if network_opt == 'public':
-        zabbix_agentd_dlurl = (
-            'http://mirrors.163.com/centos/7/isos/x86_64/0_README.txt')
-    elif network_opt == 'internal':
-        zabbix_agentd_dlurl = (
-            'http://mirrors.163.com/centos/7/isos/x86_64/0_README.txt')
-    else:
-        print('usage: ' + sys.argv[0] + ' <public, internal> [offline]')
-        HelpInfo()
-        sys.exit()
 
+def main():
+    VerifyUser()
+    host_ipaddr = Get_OS_IPAddr(network_opt)
+    if offline_ack is not True:
+        Download_App()
+    Setup_ZabbixAgentd()
+    Setup_ZabbixAgentd_cfgfile(zabbix_agentd_cfgfile_hostname, host_ipaddr)
+    Setup_ZabbixAgentd_cfgfile(zabbix_agentd_cfgfile_sourceip, host_ipaddr)
+    Setup_ZabbixAgentd_cfgfile(zabbix_agentd_cfgfile_serverip, acc_server_opt)
+    Add_Crontab_Policy()
+
+
+if __name__ == '__main__':
+    os.chdir(sys.path[0])
+    network_ack = None
+    network_opt = None
+    acc_server_ack = None
+    acc_server_opt = None
+    offline_ack = None
+    offline_opt = None
+    zabbix_agentd_user = None
+    zabbix_agentd_dlfilename = None
+    zabbix_agentd_install_dir = None
+    zabbix_agentd_install_path = None
+    zabbix_agentd_daemon_path = None
+    zabbix_crond_policy = None
+    zabbix_agentd_cfgfile_path = None
+    zabbix_agentd_dlurl = None
+    zabbix_agentd_cfgfile_hostname = None
+    zabbix_agentd_cfgfile_sourceip = None
+    zabbix_agentd_cfgfile_serverip = None
+    vars_def()
     os_platform_info = Get_OS_Version()
     if os_platform_info[0] == 'Linux':
         if os_platform_info[1].lower() == 'centos':
