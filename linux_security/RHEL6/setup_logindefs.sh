@@ -6,7 +6,9 @@ if [ -w ${f_logindefs} ]; then
     cp ${f_logindefs}{,.bak.$(date +%s)}
     # setup UMASK
     if [ $(grep -E '^UMASK' ${f_logindefs} |wc -l) -eq 0 ]; then
-        sed -i '58i\UMASK      027' ${f_logindefs}
+        # fix bug
+        # sed -i '58i\UMASK      027' ${f_logindefs}
+        echo 'UMASK      027' >> ${f_logindefs}
     elif [ $(grep -E '^UMASK.*0[2,7]7' ${f_logindefs} |wc -l) -eq 0 ]; then
         sed -i 's/^UMASK.*/UMASK      027/g' ${f_logindefs}
     fi

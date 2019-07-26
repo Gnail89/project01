@@ -32,3 +32,15 @@ if [ -w ${f_ftpcfg} ]; then
         sed -i "s/^ftpd_banner=.*/ftpd_banner=${f_ftpbanner}/g" ${f_ftpcfg}
     fi
 fi
+
+# other options
+if [ -d /home/smpint/ ] && [ ! -f /home/smpint/vsftpd.conf ]; then
+    cp -f ${f_ftpcfg} /home/smpint/vsftpd.conf
+    chown smpint:smpint /home/smpint/vsftpd.conf
+    chmod 644 /home/smpint/vsftpd.conf
+fi
+if [ -d /home/smpint/ ] && [ ! -f /home/smpint/ftpusers ]; then
+    cp -f ${f_ftpusers} /home/smpint/ftpusers
+    chown smpint:smpint /home/smpint/ftpusers
+    chmod 644 /home/smpint/ftpusers
+fi
