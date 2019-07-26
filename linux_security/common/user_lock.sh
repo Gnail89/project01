@@ -12,6 +12,6 @@ done
 
 for self in "${user_noshell[@]}"; do
     if id ${self}; then
-        usermod -s /bin/false ${self}
+        usermod -s /sbin/nologin ${self}
     fi
 done
