@@ -34,12 +34,12 @@ if [ -w ${f_ftpcfg} ]; then
 fi
 
 # other options
-if [ -d /home/smpint/ ] && [ ! -f /home/smpint/vsftpd.conf ]; then
+if [ -f ${f_ftpcfg} ] && [ -d /home/smpint/ ] && [ ! -f /home/smpint/vsftpd.conf ]; then
     cp -f ${f_ftpcfg} /home/smpint/vsftpd.conf
     chown smpint:smpint /home/smpint/vsftpd.conf
     chmod 644 /home/smpint/vsftpd.conf
 fi
-if [ -d /home/smpint/ ] && [ ! -f /home/smpint/ftpusers ]; then
+if [ -f ${f_ftpusers} ] && [ -d /home/smpint/ ] && [ ! -f /home/smpint/ftpusers ]; then
     cp -f ${f_ftpusers} /home/smpint/ftpusers
     chown smpint:smpint /home/smpint/ftpusers
     chmod 644 /home/smpint/ftpusers
