@@ -33,7 +33,7 @@ fi
 
 # find specific file
 for bakfile in "${f_findfile[@]}"; do
-    find /home/ -name "${bakfile}" -type f |xargs -i mv {}{,.bak.$(date +%s)}
+    find /home/ -maxdepth 1 -name "${bakfile}" -type f |xargs -i mv {}{,.bak.$(date +%s)}
 done
 
 # other options
