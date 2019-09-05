@@ -24,7 +24,7 @@ function MegaCli_Raid_inspect(){
     # return code 0 : means it's normal status
     # return code 1 : means it's fault status
     if [ -x ${megacli_tool} ]; then
-        if [ $(${megacli_tool} -AdpAllInfo -aAll | grep "Critical Disk" | awk {'print $4'}) -eq 0 -a $(${megacli_tool} -AdpAllInfo -aAll | grep "Failed Disk" | awk {'print $4'}) -eq 0 ]; then
+        if [ $(${megacli_tool} -AdpAllInfo -aAll -nolog | grep "Critical Disk" | awk {'print $4'}) -eq 0 -a $(${megacli_tool} -AdpAllInfo -aAll | grep "Failed Disk" | awk {'print $4'}) -eq 0 ]; then
             result_stat=0
         else
             result_stat=1
