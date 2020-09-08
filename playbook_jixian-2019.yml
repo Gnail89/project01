@@ -5,7 +5,7 @@
   become_method: sudo
   become_user: root
   tasks:
-  - name: transfer and unarchive files
+  - name: transfer and unarchive file
     unarchive:
       src: http://192.168.1.1/scripts/jixian-2019.tar.gz
       dest: /tmp
