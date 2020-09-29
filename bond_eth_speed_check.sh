@@ -1,5 +1,6 @@
 #!/bin/bash
 
+umask 022
 export PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
 result_info=""
@@ -33,14 +34,11 @@ function bond_eth_dect(){
 
 function main(){
     bond_eth_dect
+    if [ x"${result_info}" != x"" ]; then
+        echo "${result_info}" > /tmp/bond_eth_speed_check.txt
+    else
+        echo '0' > /tmp/bond_eth_speed_check.txt
+    fi
 }
 
 main
-
-if [ x"${result_info}" != x"" ]; then
-    echo "${result_info}" > /tmp/bond_eth_speed_check.txt
-    sleep 3600
-    echo '0' > /tmp/bond_eth_speed_check.txt
-else
-    echo '0' > /tmp/bond_eth_speed_check.txt
-fi

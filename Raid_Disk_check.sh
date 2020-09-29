@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export umask=022
+umask 022
 basepath=$(cd `dirname $0`;pwd)
 
 megacli_tool="/opt/MegaRAID/MegaCli/MegaCli64"
