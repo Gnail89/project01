@@ -21,7 +21,7 @@ function bond_eth_dect(){
             if [ -r "${bond_path}/${bond_name}" ]; then
                 for eth_name in $(sed -n "/Slave Interface\:/s/.*Slave Interface: //p" "${bond_path}/${bond_name}");do
                     local eth_speed="$(ethtool ${eth_name} |sed -n "/Speed\:/s/.*Speed: //p" |egrep -o "[[:digit:]]+")"
-                    local eth_max_speed="$(echo $(ethtool ${eth_name}) |egrep -o "Supported link modes:.*Full Supported" |awk '{print $(NF-1)}' |egrep -o "[[:digit:]]+")"
+                    local eth_max_speed="$(echo $(ethtool ${eth_name}) |egrep -o "Supported link modes:.*Full Support" |awk '{print $(NF-1)}' |egrep -o "[[:digit:]]+")"
                     if [ x"${eth_max_speed}" != x"${eth_speed}" ]; then
                         [ x"${eth_speed}" == x"" ] && eth_speed="down"
                         msg_box "${bond_name},${eth_name},${eth_speed}"
