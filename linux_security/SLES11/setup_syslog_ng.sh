@@ -45,7 +45,7 @@ if [ -w ${f_syslog} ]; then
     fi
     # Remote Logging
     if [ $(grep -E '^filter.*f_somcprobe.*\{ level\(err\,crit\,alert\,emerg\) and not facility\(auth\) or level\(info\,notice\,warn\,err\,crit\,alert\,emerg\) and facility\(auth\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
-        echo 'filter f_somcprobe { level(err,crit,alert,emerg) and not facility(auth) or level(info,notice,warn,err,crit,alert,emerg) and facility(auth); };' >> ${f_syslog}
+        echo 'filter f_somcprobe { level(info,notice,warn,err,crit,alert,emerg) and facility(auth) or level(notice) and facility(user); };' >> ${f_syslog}
     fi
     if [ $(grep -E "^destination.*d_somcprobe.*\{ udp\(\"${f_remotelog}\" port\(514\)" ${f_syslog} |wc -l) -eq 0 ]; then
         echo "destination d_somcprobe { udp(\"${f_remotelog}\" port(514) template(\"<\$PRI>ISMP_SUSE [\$FULLDATE] [\$HOST] [\$FACILITY.\$LEVEL] \$MSG\\n\"));};" >> ${f_syslog}
