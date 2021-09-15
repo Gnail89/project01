@@ -10,6 +10,7 @@ if [ -w ${f_pamsu} ]; then
     if [ $(grep -E '^auth.*required.*pam_wheel.so.*group=wheel.*' ${f_pamsu} |wc -l) -ne 1 ]; then
         cat > ${f_pamsu} << EOF
 #%PAM-1.0
+auth            required        pam_env.so
 auth            sufficient      pam_rootok.so
 # Uncomment the following line to implicitly trust users in the "wheel" group.
 #auth           sufficient      pam_wheel.so trust use_uid

@@ -16,6 +16,10 @@ if [ -w ${f_rsyslog} ]; then
     if [ $(grep -E '^authpriv.\*.*/var/log/secure' ${f_rsyslog} |wc -l) -eq 0 ]; then
         echo 'authpriv.*      /var/log/secure' >> ${f_rsyslog}
     fi
+    # authpriv.info
+    if [ $(grep -E '^authpriv.info.*/var/log/authpriv_info' ${f_rsyslog} |wc -l) -eq 0 ]; then
+        echo 'authpriv.info      /var/log/authpriv_info' >> ${f_rsyslog}
+    fi
     # crontab logging
     if [ $(grep -E '^cron.\*.*/var/log/cron' ${f_rsyslog} |wc -l) -eq 0 ];then
         echo 'cron.*      /var/log/cron' >> ${f_rsyslog}

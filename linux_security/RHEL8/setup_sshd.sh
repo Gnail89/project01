@@ -10,7 +10,7 @@ if [ -w ${f_sshdcfg} ]; then
     # not permit root login
     if [ $(grep '^PermitRootLogin' ${f_sshdcfg} |wc -l) -eq 0 ]; then
         sed -i '12i\PermitRootLogin no' ${f_sshdcfg}
-    elif [ $(grep '^PermitRootLogin' ${f_sshdcfg} |wc -l) -ne 0 ]; then
+    elif [ $(grep '^PermitRootLogin.*no' ${f_sshdcfg} |wc -l) -eq 0 ]; then
         sed -i 's/^PermitRootLogin.*/PermitRootLogin no/g' ${f_sshdcfg}
     fi
     # Protocol 2

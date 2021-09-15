@@ -15,3 +15,4 @@ for self in "${user_noshell[@]}"; do
         usermod -s /sbin/nologin ${self}
     fi
 done
+

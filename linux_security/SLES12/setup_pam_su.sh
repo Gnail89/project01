@@ -2,7 +2,7 @@
 
 f_pamsu='/etc/pam.d/su'
 f_pamcommonauth='/etc/pam.d/common-auth'
-f_wheel_users=('aiuap' 'public' 'cloud')
+f_wheel_users=('user')
 
 if [ -w ${f_pamsu} ]; then
     cp ${f_pamsu}{,.bak.$(date +%s)}

@@ -9,20 +9,20 @@ if [ -w ${f_sshdcfg} ]; then
     cp ${f_sshdcfg}{,.bak.$(date +%s)}
     # not permit root login
     if [ $(grep '^PermitRootLogin' ${f_sshdcfg} |wc -l) -eq 0 ]; then
-        echo 'PermitRootLogin no' >> ${f_sshdcfg}
-    elif [ $(grep '^PermitRootLogin.*no' ${f_sshdcfg} |wc -l) -eq 0 ]; then
+        sed -i '12i\PermitRootLogin no' ${f_sshdcfg}
+    elif [ $(grep '^PermitRootLogin' ${f_sshdcfg} |wc -l) -ne 0 ]; then
         sed -i 's/^PermitRootLogin.*/PermitRootLogin no/g' ${f_sshdcfg}
     fi
     # Protocol 2
     if [ $(grep -i '^Protocol 2' ${f_sshdcfg} |wc -l) -eq 0 ]; then
-        echo 'Protocol 2' >> ${f_sshdcfg}
+        sed -i '12i\Protocol 2' ${f_sshdcfg}
     else
         sed -i -e '/^Protocol/d' -e '/^protocol/d' ${f_sshdcfg}
-        echo 'Protocol 2' >> ${f_sshdcfg}
+        sed -i '12i\Protocol 2' ${f_sshdcfg}
     fi
     # ssh banner
     if [ $(grep -E '^Banner' ${f_sshdcfg} |wc -l) -eq 0 ]; then
-        echo "Banner ${f_sshbannerfile}" >> ${f_sshdcfg}
+        sed -i "12i\Banner ${f_sshbannerfile}" ${f_sshdcfg}
     else
         sed -i "s/^Banner.*/Banner \/etc\/ssh_banner/g" ${f_sshdcfg}
     fi
@@ -37,8 +37,9 @@ for bakfile in "${f_findfile[@]}"; do
 done
 
 # other options
-if [ -d /home/smpint/ ] && [ ! -f /home/smpint/sshd_config ]; then
+if [ -d /home/smpint/ ]; then
     cp -f ${f_sshdcfg} /home/smpint/sshd_config
     chown smpint:smpint /home/smpint/sshd_config
     chmod 644 /home/smpint/sshd_config
+    sed -i 's/^PermitRootLogin.*/PermitRootLogin no/g' /home/smpint/sshd_config
 fi

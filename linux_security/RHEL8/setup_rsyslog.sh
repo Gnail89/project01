@@ -4,9 +4,9 @@ f_rsyslog='/etc/rsyslog.conf'
 f_remotelog='1.1.1.1'
 
 function restart_rsyslog(){
-    service rsyslog status
+    systemctl is-active rsyslog
     if [ $? -eq 0 ]; then
-        service rsyslog restart
+        systemctl restart rsyslog
     fi
 }
 
@@ -15,10 +15,6 @@ if [ -w ${f_rsyslog} ]; then
     # authpriv.*
     if [ $(grep -E '^authpriv.\*.*/var/log/secure' ${f_rsyslog} |wc -l) -eq 0 ]; then
         echo 'authpriv.*      /var/log/secure' >> ${f_rsyslog}
-    fi
-    # authpriv.info
-    if [ $(grep -E '^authpriv.info.*/var/log/authpriv_info' ${f_rsyslog} |wc -l) -eq 0 ]; then
-        echo 'authpriv.info      /var/log/authpriv_info' >> ${f_rsyslog}
     fi
     # crontab logging
     if [ $(grep -E '^cron.\*.*/var/log/cron' ${f_rsyslog} |wc -l) -eq 0 ];then

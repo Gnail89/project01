@@ -5,8 +5,8 @@ basepath=$(cd `dirname $0`;pwd)
 . ${basepath}/../common/passwd_lock.sh
 . ${basepath}/../common/user_lock.sh
 . ${basepath}/setup_logindefs.sh
-. ${basepath}/setup_pam_commonpassword.sh
 . ${basepath}/setup_pam_su.sh
+. ${basepath}/setup_pam_systemauth.sh
 . ${basepath}/setup_profile.sh
 . ${basepath}/setup_rsyslog.sh
 . ${basepath}/setup_securetty.sh
