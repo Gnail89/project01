@@ -1,0 +1,30 @@
+---
+- name: Setup | Install, Config, Start zabbix agent
+  block:
+    - name: Setup | Copy x86_64 package file to host
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ g_zbx_file_path }}/{{ item.dest }}"
+        owner: "{{ g_zbx_file_owner }}"
+        mode: '0644'
+      loop:
+        - { src: "zabbix_agentd_setup.py", dest: "zabbix_agentd_setup.py" }
+        - { src: "zabbix-agentd-4.0.1-1.linux.x86_64.tar.gz", dest: "zabbix_agentd_static.tar.gz" }
+      when: ansible_architecture == "x86_64"
+    - name: Setup | Copy i386 package file to host
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ g_zbx_file_path }}/{{ item.dest }}"
+        owner: "{{ g_zbx_file_owner }}"
+        mode: '0644'
+      loop:
+        - { src: "zabbix_agentd_setup.py", dest: "zabbix_agentd_setup.py" }
+        - { src: "zabbix-agentd-4.0.1-1.linux.i386.tar.gz", dest: "zabbix_agentd_static.tar.gz" }
+      when: ansible_architecture == "i386"
+    - name: Setup | Install zabbix agent
+      shell: 
+        chdir: "{{ g_zbx_file_path }}"
+        cmd: python zabbix_agentd_setup.py -s "{{ g_zbx_server_ip }}"
+      notify: restart zabbix agent
+      when: ansible_system == "Linux"
+  remote_user: "{{ g_zbx_file_owner }}"

@@ -1,0 +1,7 @@
+---
+- name: restart zabbix agent
+  shell:
+    chdir: "{{ g_zbx_file_path }}"
+    cmd: sh ./zabbix_agentd/zabbix_script.sh restart
+  when: ansible_system == "Linux"
+  
