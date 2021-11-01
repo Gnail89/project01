@@ -14,7 +14,7 @@ see_data(){
     local ipaddr="$1"
     local item_id="$2"
     local table_name="$3"
-    local SQL1=$(echo "select value from ${table_name} where itemid = ${item_id} order by value DESC limit 1;")
+    local SQL1=$(echo "select clock,value from ${table_name} where itemid = ${item_id} order by clock DESC limit 1;")
     local value_tmp="$(${MYSQL_CMD} -e "${SQL1}" 2>/dev/null |egrep "[[:digit:]]+")"
     if [ x"${value_tmp}" != x"" ]; then
         echo "${ipaddr} ${item_id} ${value_tmp}"
@@ -25,7 +25,7 @@ see_data(){
 }
 
 main(){
-    local SQL1=$(echo "select hosts.host,items.itemid,items.value_type from items,hosts where items.name like '%进风口温度%' and items.hostid = hosts.hostid;")
+    local SQL1=$(echo "select hosts.name,items.itemid,items.value_type from hosts,items where hosts.hostid = items.hostid and hosts.status = 0 and items.key_ = 'agent.ping';")
     echo "$(${MYSQL_CMD} -e "${SQL1}" 2>/dev/null |egrep "[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+")" |while read line;do
         local ipaddr="$(echo ${line} |awk '{print $1}')"
         local itemid="$(echo ${line} |awk '{print $2}')"
