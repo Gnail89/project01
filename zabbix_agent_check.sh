@@ -19,7 +19,7 @@ see_data(){
     if [ x"${value_tmp}" != x"" ]; then
         echo "${ipaddr} ${item_id} ${value_tmp}"
     else
-        echo "${ipaddr} ${item_id} null"
+        echo "${ipaddr} ${item_id:-null} null"
     fi
     sleep 0
 }
