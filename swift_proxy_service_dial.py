@@ -23,7 +23,7 @@ time_out = 3
 def output_alert():
     global alert_flag, alert_file
     try:
-        with open(alert_file, 'w+', 0x1A4) as f:
+        with open(alert_file, 'w+') as f:
             if alert_flag:
                 f.write('1')
             else:
@@ -36,7 +36,7 @@ def output_alert():
 def save_token():
     global token_file, token, alert_flag
     try:
-        with open(token_file, 'w+', 0x180) as f:
+        with open(token_file, 'w+') as f:
             f.write(token)
             f.close
     except Exception:
