@@ -9,7 +9,7 @@ else
 fi
 
 if [ x"${port_list}" != x""  ] && [ x"${data_buff}" != x"" ]; then
-    data_buff="$(echo "${data_buff}" |sed -e "s/\s\|:/,/g" -e "s/^,*//g" -e "s/,\+/,/g")"
+    data_buff="$(echo "${data_buff}" |sed -e "s/\s\+\|:/,/g" -e "s/^,*//g" -e "s/,\+/,/g")"
     for i in ${port_list};do
         port_state="$(cat /sys/class/net/${i}/operstate )"
         in1="$(echo "${data_buff}" |awk -F',' '/'${i}'/{print $2}' |sed -n 1p)"
