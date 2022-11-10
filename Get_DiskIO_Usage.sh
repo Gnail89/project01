@@ -14,7 +14,7 @@ fi
 if [ x"${dev_list}" != x"" ]; then
     for i in ${dev_list}; do
         if [ -r "/sys/class/block/${i}/stat" ]; then
-            data_buff1[${i}]="$(cat /sys/class/block/${i}/stat)"
+            data_buff1[${i}]="$(cat /sys/class/block/${i}/stat |sed -e "s/\s\+/,/g" -e "s/^,*//g" -e "s/,\+/,/g")"
         else
             data_buff1[${i}]="0"
         fi
@@ -22,18 +22,18 @@ if [ x"${dev_list}" != x"" ]; then
     sleep ${time_delay}
     for i in ${dev_list}; do
         if [ -r "/sys/class/block/${i}/stat" ]; then
-            data_buff2[${i}]="$(cat /sys/class/block/${i}/stat)"
+            data_buff2[${i}]="$(cat /sys/class/block/${i}/stat |sed -e "s/\s\+/,/g" -e "s/^,*//g" -e "s/,\+/,/g")"
         else
             data_buff2[${i}]="0"
         fi
     done
     for i in ${dev_list}; do
-        read_ms1="$(echo "${data_buff1[${i}]}" |awk '{print $4}')"
-        read_ms2="$(echo "${data_buff2[${i}]}" |awk '{print $4}')"
-        write_ms1="$(echo "${data_buff1[${i}]}" |awk '{print $8}')"
-        write_ms2="$(echo "${data_buff2[${i}]}" |awk '{print $8}')"
-        io_ms1="$(echo "${data_buff1[${i}]}" |awk '{print $10}')"
-        io_ms2="$(echo "${data_buff2[${i}]}" |awk '{print $10}')"
+        read_ms1="$(echo "${data_buff1[${i}]}" |awk -F',' '{print $4}')"
+        read_ms2="$(echo "${data_buff2[${i}]}" |awk -F',' '{print $4}')"
+        write_ms1="$(echo "${data_buff1[${i}]}" |awk -F',' '{print $8}')"
+        write_ms2="$(echo "${data_buff2[${i}]}" |awk -F',' '{print $8}')"
+        io_ms1="$(echo "${data_buff1[${i}]}" |awk -F',' '{print $10}')"
+        io_ms2="$(echo "${data_buff2[${i}]}" |awk -F',' '{print $10}')"
         read_ms="$(echo |awk '{printf("%f",("'"${read_ms2}"'"-"'"${read_ms1}"'")/"'"${time_delay}"'")}')"
         write_ms="$(echo |awk '{printf("%f",("'"${write_ms2}"'"-"'"${write_ms1}"'")/"'"${time_delay}"'")}')"
         io_ms="$(echo |awk '{printf("%f",("'"${io_ms2}"'"-"'"${io_ms1}"'")/"'"${time_delay}"'")}')"
