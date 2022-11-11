@@ -12,10 +12,10 @@ if [ x"${port_list}" != x""  ] && [ x"${data_buff}" != x"" ]; then
     data_buff="$(echo "${data_buff}" |sed -e "s/\s\+\|:/,/g" -e "s/^,*//g" -e "s/,\+/,/g")"
     for i in ${port_list};do
         port_state="$(cat /sys/class/net/${i}/operstate )"
-        in1="$(echo "${data_buff}" |awk -F',' '/^'${i}'/{print $2}' |sed -n 1p)"
-        in2="$(echo "${data_buff}" |awk -F',' '/^'${i}'/{print $2}' |sed -n 2p)"
-        out1="$(echo "${data_buff}" |awk -F',' '/^'${i}'/{print $10}' |sed -n 1p)"
-        out2="$(echo "${data_buff}" |awk -F',' '/^'${i}'/{print $10}' |sed -n 2p)"
+        in1="$(echo "${data_buff}" |awk -F',' '/^'${i}',/{print $2}' |sed -n 1p)"
+        in2="$(echo "${data_buff}" |awk -F',' '/^'${i}',/{print $2}' |sed -n 2p)"
+        out1="$(echo "${data_buff}" |awk -F',' '/^'${i}',/{print $10}' |sed -n 1p)"
+        out2="$(echo "${data_buff}" |awk -F',' '/^'${i}',/{print $10}' |sed -n 2p)"
         in_byte="$(( ${in2} - ${in1} ))"
         out_byte="$(( ${out2} - ${out1} ))"
         if [ x"${port_state}" == x"up" ]; then
