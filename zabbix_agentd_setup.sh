@@ -66,7 +66,15 @@ function download_package(){
 
 function add_cron_policy(){
     if [ "$(crontab -l |egrep -v "^#|^$" |egrep -c "${daemonScript}")" -eq 0 ]; then
-        echo "$(crontab -l)" |sed "1i\\${cronPolicy}" |crontab
+        # echo "$(crontab -l)" |sed "1i\\${cronPolicy}" |crontab
+        local ctmp="$(date "+%s").tmp"
+        echo "$(crontab -l)" |sed "1i\\${cronPolicy}" > ${ctmp}
+        if [ $? -eq 0 ]; then
+            crontab "${ctmp}"
+        else
+            echo "update crontab job failed"
+        fi
+        [ -f ${ctmp} ] && rm -f ${ctmp}
     fi
 }
 
