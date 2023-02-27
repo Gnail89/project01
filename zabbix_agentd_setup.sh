@@ -88,7 +88,7 @@ function decompress_packages(){
 }
 
 function get_defroute_ipaddr(){
-    local ifname="$(route -n |egrep "^0\.0\.0\.0" |awk '{print $NF}')"
+    local ifname="$(awk '$2 == "00000000" {print $1}' /proc/net/route)"
     if [ x"${ifname}" != x"" ]; then
         hostIP="$(ip addr show dev ${ifname} |egrep -o "[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+" |sed -n "1p")"
     else
