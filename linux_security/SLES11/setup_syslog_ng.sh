@@ -44,14 +44,20 @@ if [ -w ${f_syslog} ]; then
         echo 'log { source(src); filter(f_errors); destination(errors); };' >> ${f_syslog}
     fi
     # Remote Logging
-    if [ $(grep -E '^filter.*f_somcprobe.*\{ level\(err\,crit\,alert\,emerg\) and not facility\(auth\) or level\(info\,notice\,warn\,err\,crit\,alert\,emerg\) and facility\(auth\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
-        echo 'filter f_somcprobe { level(info,notice,warn,err,crit,alert,emerg) and facility(auth) or level(notice) and facility(user); };' >> ${f_syslog}
+    #if [ $(grep -E '^filter.*f_somcprobe.*\{ level\(err\,crit\,alert\,emerg\) and not facility\(auth\) or level\(info\,notice\,warn\,err\,crit\,alert\,emerg\) and facility\(auth\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
+        #echo 'filter f_somcprobe { level(info,notice,warn,err,crit,alert,emerg) and facility(auth) or level(notice) and facility(user); };' >> ${f_syslog}
+    if [ $(grep -E '^filter.*f_esaprobe.*\{level\(info\,notice\,warn\,err\,crit\,alert\,emerg\) and facility\(auth\) or level\(notice\) and facility\(user\)\;\}\;' ${f_syslog} |wc -l) -eq 0 ]; then
+        echo 'filter f_esaprobe {level(info,notice,warn,err,crit,alert,emerg) and facility(auth) or level(notice) and facility(user);};' >> ${f_syslog}
     fi
-    if [ $(grep -E "^destination.*d_somcprobe.*\{ udp\(\"${f_remotelog}\" port\(514\)" ${f_syslog} |wc -l) -eq 0 ]; then
-        echo "destination d_somcprobe { udp(\"${f_remotelog}\" port(514) template(\"<\$PRI>ISMP_SUSE [\$FULLDATE] [\$HOST] [\$FACILITY.\$LEVEL] \$MSG\\n\"));};" >> ${f_syslog}
+    #if [ $(grep -E "^destination.*d_somcprobe.*\{ udp\(\"${f_remotelog}\" port\(514\)" ${f_syslog} |wc -l) -eq 0 ]; then
+        #echo "destination d_somcprobe { udp(\"${f_remotelog}\" port(514) template(\"<\$PRI>ISMP_SUSE [\$FULLDATE] [\$HOST] [\$FACILITY.\$LEVEL] \$MSG\\n\"));};" >> ${f_syslog}
+    if [ $(grep -E "^destination.*d_esaprobe.*\{udp\(\"${f_remotelog}\" port\(514\)" ${f_syslog} |wc -l) -eq 0 ]; then
+        echo "destination d_esaprobe {udp(\"${f_remotelog}\" port(514) template(\"<\$PRI>ISMP_SUSE [\$FULLDATE] [\$HOST] [\$FACILITY.\$LEVEL] \$MSG\\n\"));};" >> ${f_syslog}
     fi
-    if [ $(grep -E '^log.*\{ source\(src\)\; filter\(f_somcprobe\)\; destination\(d_somcprobe\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
-        echo 'log { source(src); filter(f_somcprobe); destination(d_somcprobe); };' >> ${f_syslog}
+    #if [ $(grep -E '^log.*\{ source\(src\)\; filter\(f_somcprobe\)\; destination\(d_somcprobe\)\; \}\;' ${f_syslog} |wc -l) -eq 0 ]; then
+        #echo 'log { source(src); filter(f_somcprobe); destination(d_somcprobe); };' >> ${f_syslog}
+    if [  $(grep -E '^log.*\{source\(src\)\;filter\(f_esaprobe\)\;destination\(d_esaprobe\)\;\}\;' ${f_syslog} |wc -l) -eq 0 ]; then
+        echo 'log {source(src);filter(f_esaprobe);destination(d_esaprobe);};' >> ${f_syslog}
     fi
     # setup logrotate
     if [ -w ${f_logrotate} ]; then

@@ -26,7 +26,7 @@ if [ -w ${f_rsyslog} ]; then
     fi
     # Remote Logging
     if [ $(grep -E "^\*.\*.*@*${f_remotelog}" ${f_rsyslog} |wc -l) -eq 0 ]; then
-        echo "*.*      @${f_remotelog}" >> ${f_rsyslog}
+        echo "auth.info;user.notice      @${f_remotelog}" >> ${f_rsyslog}
     fi
     # reload service
     restart_rsyslog
