@@ -3,7 +3,7 @@
 f_rsyslog='/etc/rsyslog.conf'
 f_remotelog='1.1.1.1'
 
-function restart_rsyslog(){
+restart_rsyslog(){
     service rsyslog status
     if [ $? -eq 0 ]; then
         service rsyslog restart
@@ -29,7 +29,7 @@ if [ -w ${f_rsyslog} ]; then
         echo '*.err      /var/log/errors' >> ${f_rsyslog}
     fi
     # Remote Logging
-    if [ $(grep -E "^\*.\*.*@*${f_remotelog}" ${f_rsyslog} |wc -l) -eq 0 ]; then
+    if [ $(grep -E "^auth.info;user.notice.*@*${f_remotelog}" ${f_rsyslog} |wc -l) -eq 0 ]; then
         echo "auth.info;user.notice      @${f_remotelog}" >> ${f_rsyslog}
     fi
     # reload service

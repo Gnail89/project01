@@ -4,7 +4,7 @@ f_syslog='/etc/syslog-ng/syslog-ng.conf'
 f_remotelog='1.1.1.1'
 f_logrotate='/etc/logrotate.d/syslog'
 
-function restart_syslog(){
+restart_syslog(){
     service syslog status
     if [ $? -eq 0 ]; then
         service syslog restart

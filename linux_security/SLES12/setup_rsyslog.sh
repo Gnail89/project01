@@ -4,7 +4,7 @@ f_rsyslog='/etc/rsyslog.conf'
 f_remotelog='1.1.1.1'
 f_logrotate='/etc/logrotate.d/syslog'
 
-function restart_rsyslog(){
+restart_rsyslog(){
     systemctl status rsyslog
     if [ $? -eq 0 ]; then
         systemctl restart rsyslog
@@ -26,7 +26,7 @@ if [ -w ${f_rsyslog} ]; then
         echo '*.err      /var/log/errors' >> ${f_rsyslog}
     fi
     # Remote Logging
-    if [ $(grep -E "^\*.\*.*@*${f_remotelog}" ${f_rsyslog} |wc -l) -eq 0 ]; then
+    if [ $(grep -E "^auth.info;user.notice.*@*${f_remotelog}" ${f_rsyslog} |wc -l) -eq 0 ]; then
         echo "auth.info;user.notice      @${f_remotelog}" >> ${f_rsyslog}
     fi
     # setup logrotate
