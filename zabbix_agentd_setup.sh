@@ -117,6 +117,7 @@ function main(){
     if [ x"$(whoami)" != x"root" ]; then
         init_paras "$@"
         get_defroute_ipaddr
+        cd ${rootPath}
         [ x"${hostIP}" == x"" ] && echo "Get host ip failed" && exit 1
         if [ -r "${srcFilename}" ]; then
             [ x"${serverIP}" == x"" ] && echo "zabbix server ip is NULL" && exit 1

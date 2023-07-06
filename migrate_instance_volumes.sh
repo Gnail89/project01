@@ -37,19 +37,17 @@ while read vm_ip;do
         echo "wait 60 sec" && sleep 60
         #vol_img_id="$(openstack image create -f value -c image_id --container-format bare --disk-format qcow2 --volume ${vol_id} --force "new-${vol_name}")"
         
-        echo ""
-        echo ""
-        echo "################### Run Command Now #############################"
-        echo ""
-        #echo "openstack image create -f value -c image_id --container-format bare --disk-format qcow2 --volume ${vol_id} --force \"new-${vol_name}\""
-        echo "openstack image create -f value -c image_id --container-format bare --disk-format qcow2 --volume ${vol_id} --force \"new-${vol_name}\" >  rebuild_new_image_id.data"
-        echo ""
-        echo "########## Save image id to file: rebuild_new_image_id.data #############"
-        echo ""
-        echo ""
-
         [ -f rebuild_new_image_id.data ] && rm -f rebuild_new_image_id.data
-        
+
+        echo "################### Run Command Now #############################"
+        echo "openstack image create -f value -c image_id --container-format bare --disk-format qcow2 --volume ${vol_id} --force \"new-${vol_name}\" >  rebuild_new_image_id.data"
+        echo "########## Save image id to file: rebuild_new_image_id.data #############"
+        echo "NOTE: or command run: 'while true;do [ -f migrate_instance_volumes_plugin.sh ] && sh migrate_instance_volumes_plugin.sh && rm -f migrate_instance_volumes_plugin.sh ;sleep 60;done' in other console"
+
+        cat > migrate_instance_volumes_plugin.sh <<EOF
+openstack image create -f value -c image_id --container-format bare --disk-format qcow2 --volume ${vol_id} --force "new-${vol_name}" >  rebuild_new_image_id.data
+EOF
+
         for i in {1..200};do
             if [ -r "rebuild_new_image_id.data" ]; then
                 vol_img_id="$(cat rebuild_new_image_id.data)"
