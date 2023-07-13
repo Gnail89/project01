@@ -149,8 +149,8 @@ cloud    ALL=(ALL)    NOPASSWD:/opt/MegaRAID/MegaCli/MegaCli64,/sbin/ssacli,/sbi
 
     echo -n '4. install megaraid cli tool'
     rpm -ivh http://172.16.1.1:8080/Raid_Disk_check/MegaCli-8.07.14-1.noarch.rpm &> /dev/null
-    [ $? -ne 0 ] && rpm -ivh http://172.16.3.1:8001/Raid_Disk_check/MegaCli-8.07.14-1.noarch.rpm &> /dev/null
-    [ $? -ne 0 ] && echo '      failed. Please manual install megaraid cli tool: rpm -ivh MegaCli-8.07.14-1.noarch.rpm' || echo "      complete"
+    [ $? -ne 0 ] && rpm -ivh http://172.16.2.1:8080/Raid_Disk_check/MegaCli-8.07.14-1.noarch.rpm &> /dev/null
+    [ $? -ne 0 ] && echo '      failed. Please manual install megaraid cli tool: rpm -ivh MegaCli-8.07.14-1.noarch.rpm' && exit 0 || echo "      complete"
 }
 
 
@@ -186,8 +186,8 @@ cloud    ALL=(ALL)    NOPASSWD:/opt/MegaRAID/MegaCli/MegaCli64,/sbin/ssacli,/sbi
 
     echo -n '4. install ssaraid cli tool'
     rpm -ivh http://172.16.1.1:8080/Raid_Disk_check/ssacli-3.30-14.0.x86_64.rpm &> /dev/null
-    [ $? -ne 0 ] && rpm -ivh http://172.16.3.1:8001/Raid_Disk_check/ssacli-3.30-14.0.x86_64.rpm &> /dev/null
-    [ $? -ne 0 ] && echo '      failed. Please manual install ssaraid cli tool: rpm -ivh ssacli-3.30-14.0.x86_64.rpm' || echo "      complete"
+    [ $? -ne 0 ] && rpm -ivh http://172.16.2.1:8080/Raid_Disk_check/ssacli-3.30-14.0.x86_64.rpm &> /dev/null
+    [ $? -ne 0 ] && echo '      failed. Please manual install ssaraid cli tool: rpm -ivh ssacli-3.30-14.0.x86_64.rpm' && exit 0 || echo "      complete"
 }
 
 

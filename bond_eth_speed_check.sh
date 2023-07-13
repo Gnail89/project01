@@ -6,7 +6,7 @@ export PATH=/sbin:/bin:/usr/sbin:/usr/bin
 result_info=""
 bond_path="/proc/net/bonding"
 
-function msg_box(){
+msg_box(){
     local holder_str=";"
     if [ x"${result_info}" == x"" ]; then
         result_info="$1"
@@ -15,7 +15,7 @@ function msg_box(){
     fi
 }
 
-function bond_eth_dect(){
+bond_eth_dect(){
     if [ -d ${bond_path} ]; then
         for bond_name in $(ls ${bond_path});do
             if [ -r "${bond_path}/${bond_name}" ]; then
@@ -32,7 +32,7 @@ function bond_eth_dect(){
     fi
 }
 
-function main(){
+main(){
     bond_eth_dect
     if [ x"${result_info}" != x"" ]; then
         echo "${result_info}" > /tmp/bond_eth_speed_check.txt
