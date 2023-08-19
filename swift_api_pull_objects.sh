@@ -7,6 +7,7 @@ account_id=""
 container_name=""
 tokenid=""
 marker_id=""
+ret=0
 
 while read line; do
     echo "start pull container: $line object list"
@@ -20,9 +21,21 @@ while read line; do
             sed -i "/This server could not verify that you are authorized to access the document you requested/d" ${log_file}
             curr=$(tail -n 1 ${log_file})
         fi
-        if [ x"marker_id" != x"curr" ] && [ $(echo "${curr}" |grep "This server could not verify that you are authorized to access the document you requested" |wc -l) -eq 0 ]; then
+        if [ $(echo "${curr}" |grep "The resource could not be found" |wc -l) -ne 0 ]; then
+            sed -i "/The resource could not be found/d" ${log_file}
+            curr=$(tail -n 1 ${log_file})
+            ret=1
+        fi
+        if [ x"${marker_id}" != x"" ]; then
             marker_id="${curr}"
             curl -X GET -H "Content-Type:application/json" -H "X-Auth-Token:${tokenid}" http://1.1.1.1:8888/v1/${account_id}/${container_name}?marker=${marker_id} >> ${log_file}
+        elif [ x"${marker_id}" != x"${curr}" ] && [ $(echo "${curr}" |grep "This server could not verify that you are authorized to access the document you requested" |wc -l) -eq 0 ]; then
+            marker_id="${curr}"
+            curl -X GET -H "Content-Type:application/json" -H "X-Auth-Token:${tokenid}" http://1.1.1.1:8888/v1/${account_id}/${container_name}?marker=${marker_id} >> ${log_file}
+        elif [ x"${marker_id}" == x"${curr}" ] && [ ${ret} -eq 1 ]; then
+            marker_id="${curr}"
+            curl -X GET -H "Content-Type:application/json" -H "X-Auth-Token:${tokenid}" http://1.1.1.1:8888/v1/${account_id}/${container_name}?marker=${marker_id} >> ${log_file}
+            ret=0
         else
             break
         fi
