@@ -17,7 +17,7 @@ while read line; do
     echo "load list file: ${data_file}"
     
     if [ -r ${data_file} ]; then
-        max_n="$(wc -l ${data_file})"
+        max_n="$(wc -l ${data_file} |awk '{print $1}')"
         max_n=$(( $max_n + $step ))
     else
         echo "data file read fail"
