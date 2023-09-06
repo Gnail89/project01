@@ -17,7 +17,7 @@ while read line; do
     echo "load list file: ${data_file}"
     
     if [ -r ${data_file} ]; then
-        max_n="$(egrep -v "^$" ${data_file} |wc -l)"
+        max_n="$(wc -l ${data_file})"
         max_n=$(( $max_n + $step ))
     else
         echo "data file read fail"
@@ -30,19 +30,19 @@ while read line; do
         n_start=$(( $n + 1 ))
         n_stop=$(( $n + $step ))
         file_names="$(sed -n "${n_start},${n_stop}p" ${data_file})"
-        if [ x"$(echo $file_names)" != x"" ]; then
+        if [ x"$(echo $file_names |sed "s/[[:space:]]//g")" != x"" ]; then
             echo "start download from swift, start: ${n_start} , stop: ${n_stop}"
             cd ${save_dir}/${container_name}
             swift -V 2 -A http://1.1.1.1:5000/v2.0 -U user:name -K pass download ${container_name} $(echo $file_names)
             echo "end download from swift, start: ${n_start} , stop: ${n_stop}"
         fi
         
-        if [ x"$(echo $file_names)" != x"" ]; then
+        if [ x"$(echo $file_names |sed "s/[[:space:]]//g")" != x"" ]; then
             cd ${save_dir}/${container_name}
             for i in $(echo $file_names);do
                 if [ -f ${i} ]; then
                     echo "start upload to HDS, file name: ${i}"
-                    aws s3 cp ${i} s3://nonpaper/${container_name}/
+                    aws s3 cp ${i} s3://nonpaper/${container_name}/ &
                     echo "end upload to HDS, file name: ${i}"
                 fi
             done
