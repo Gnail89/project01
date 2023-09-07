@@ -42,7 +42,10 @@ while read line; do
             for i in $(echo $file_names);do
                 if [ -f ${i} ]; then
                     echo "start upload to HDS, file name: ${i}"
-                    aws s3 cp ${i} s3://nonpaper/${container_name}/ &
+                    {
+                    aws s3 cp ${i} s3://nonpaper/${container_name}/
+                    } &
+                    sleep 0
                     echo "end upload to HDS, file name: ${i}"
                 fi
             done
