@@ -26,7 +26,7 @@ while read line; do
             curr=$(tail -n 1 ${log_file})
             ret=1
         fi
-        if [ x"${marker_id}" != x"" ]; then
+        if [ x"${marker_id}" == x"" ]; then
             marker_id="${curr}"
             curl -X GET -H "Content-Type:application/json" -H "X-Auth-Token:${tokenid}" http://1.1.1.1:8888/v1/${account_id}/${container_name}?marker=${marker_id} >> ${log_file}
         elif [ x"${marker_id}" != x"${curr}" ] && [ $(echo "${curr}" |grep "This server could not verify that you are authorized to access the document you requested" |wc -l) -eq 0 ]; then
