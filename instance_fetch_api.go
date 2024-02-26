@@ -176,3 +176,35 @@ func checkConsistency(items []Item) error {
 
 	return nil
 }
+
+// 其他测试实例
+/*
+CREATE DATABASE vmdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+
+CREATE TABLE vms (
+    id INT NOT NULL AUTO_INCREMENT,
+    location VARCHAR(255) NOT NULL,
+    vm_uuid VARCHAR(36) NOT NULL,
+    vm_name VARCHAR(255) NOT NULL,
+    vm_state VARCHAR(255) DEFAULT NULL,
+    power_state VARCHAR(36) DEFAULT NULL,
+    vm_nets VARCHAR(255) DEFAULT NULL,
+    flavor_name VARCHAR(255) DEFAULT NULL,
+    flavor_id VARCHAR(36) DEFAULT NULL,
+    availability_zone VARCHAR(255) DEFAULT NULL,
+    vm_host VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE USER 'user'@'%' IDENTIFIED BY 'pwd';
+GRANT ALL PRIVILEGES ON *.* TO 'user'@'%';
+FLUSH PRIVILEGES;
+
+TRUNCATE TABLE table_name;
+
+curl -k -X POST https://127.0.0.1:3001/vms_upload -d @vm_json.txt
+*/
