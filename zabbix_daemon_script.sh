@@ -7,7 +7,7 @@ start_app(){
     if [ -r ${pidfile} ]; then
       /bin/rm -f "${pidfile}"
     fi
-    ${basepath}/sbin/zabbix_agentd -c ${basepath}/etc/zabbix_agentd.conf &
+    nohup ${basepath}/sbin/zabbix_agentd -c ${basepath}/etc/zabbix_agentd.conf &>/dev/null &
   fi
 }
 
