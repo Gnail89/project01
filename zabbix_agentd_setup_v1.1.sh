@@ -107,7 +107,13 @@ sed -i \
     -e "s|%change_basepath%|${INST_DIR}|g" \
     "${CONFIG_DIR}/zabbix_agentd.conf"
 sed -i "s|%change_basepath%|${INST_DIR}|g" "${DAEMON_SCRIPT}"
-sed -i "s|%change_basepath%|${INST_DIR}|g" "${CONFIG_DIR}/zabbix_agentd.conf.d/*.conf"
+if [ -d "${CONFIG_DIR}/zabbix_agentd.conf.d" ]; then
+    find "${CONFIG_DIR}/zabbix_agentd.conf.d" -type f -name "*.conf" -print0 | while IFS= read -r -d '' conf_file; do
+        sed -i "s|%change_basepath%|${INST_DIR}|g" "$conf_file" || err "Failed to modify $conf_file"
+    done
+else
+    err "Directory ${CONFIG_DIR}/zabbix_agentd.conf.d does not exist."
+fi
 
 # --- Backup Existing Crontab ------------------------------------------------
 if crontab -l 2>/dev/null; then
