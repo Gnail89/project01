@@ -12,8 +12,9 @@ readonly MAX_PARALLEL=2
 
 log() {
   local lvl="$1" msg="$2"
-  printf "%s [%4s] %s\n" "$(date +'%F %T')" "$lvl" "$msg" >&2 && return 0
+  printf "%s [%4s] %s\n" "$(date +'%F %T')" "$lvl" "$msg" >&2
   [[ "$lvl" == "ERROR" ]] && exit 1
+  return 0
 }
 
 trap 'log ERROR "Script aborted in $FUNCNAME at line $LINENO"' ERR
