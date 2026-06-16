@@ -2,17 +2,9 @@
 set -e
 
 ###############################################################################
-# Title: Zabbix Agent Installer (Refactored)
+# Title: Zabbix Agent Installer
 # Description: Download and install Zabbix Agent on RHEL, CentOS,
 #              Ubuntu/Debian, and SUSE systems, supporting x86, x86_64, aarch64.
-# 
-# Usage:  zabbix_agentd_setup.sh [-u user] [-d dir] [-s server]
-# Options:
-#   -u <user>     : non-root installation user (default: zabbix)
-#   -d <dir>      : target installation directory (default: $HOME)
-#   -s <server>   : Zabbix server/proxy IP (required)
-#   -h            : show help and exit
-# 
 ###############################################################################
 
 # Configuration
@@ -27,6 +19,11 @@ RES_SERVERS=(
 declare -A ZABBIX_SERVERS=(
   ["172.17.1.1"]=10051
   ["172.16.2.1"]=10051
+)
+declare -A HA_GROUPS=(
+  ["st"]="172.16.1.1:10051;172.16.1.2:10051;172.16.1.3:10051"
+  ["xy"]="172.16.2.1:10051;172.16.2.2:10051"
+  ["lzw"]="172.16.3.1:10051;172.16.3.2:10051;172.16.3.3:10051"
 )
 
 # Global variables
@@ -43,8 +40,17 @@ HOST_IP=""
 log() { echo "[INFO] $(date +'%F %T') $*"; }
 err() { echo "[ERROR] $*" >&2; exit 1; }
 usage() {
-    sed -n '4,16p' "$0" | sed 's/# //'
-    check_zbx_port
+    local groups="${!HA_GROUPS[*]}"
+    echo "
+Usage:  $0 [-u user] [-d dir] [-s server|group] [-l local_ip]
+Options:
+  -u <user>         : non-root installation user (default: zabbix)
+  -d <dir>          : target installation directory (default: $HOME)
+  -s <server|group> : Zabbix server/proxy IP or HA group {${groups// /,}} (required)
+  -l                : ip address for agent Hostname (optional)
+  -p                : connection test
+  -h                : show help and exit
+"
     exit 0
 }
 
@@ -61,30 +67,62 @@ check_port(){
 }
 
 
-check_zbx_port(){ 
+check_zbx_port(){
+    for group in "${!HA_GROUPS[@]}"; do
+        local IFS=';'
+        for member in ${HA_GROUPS[$group]}; do
+            local host="${member%%:*}"
+            local port="${member#*:}"
+            if check_port "$host" "$port" 1; then
+                log "[HA-GROUP]: ${group}, ${host}:${port}, OK"
+            else
+                log "[HA-GROUP]: ${group}, ${host}:${port}, FAILED"
+            fi
+        done
+    done
+
     for host in "${!ZABBIX_SERVERS[@]}"; do
-        port=${ZABBIX_SERVERS[$host]}
+        local port=${ZABBIX_SERVERS[$host]}
         if check_port "$host" "$port" 1; then
-            log "Zabbix Server found at $host:$port"
+            log "[NONE-HA]: N/A, ${host}:${port}, OK"
+        else
+            log "[NONE-HA]: N/A, ${host}:${port}, FAILED"
         fi
     done
 }
 
 
+resolve_server() {
+    local input="$1"
+    if [[ -n "${HA_GROUPS[$input]:-}" ]]; then
+        SERVER="${HA_GROUPS[$input]}"
+    elif [[ "$input" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$ ]]; then
+        if [[ "$input" == *:* ]]; then
+            SERVER="$input"
+        else
+            SERVER="${input}:10051"
+        fi
+    else
+        err "Unknown HA group or invalid IP: $input"
+    fi
+}
+
 parse_arguments() {
     USER="zabbix"
     TARGET=""
     SERVER=""
-    while getopts ":u:d:s:h" opt; do
+    while getopts ":u:d:s:l:ph" opt; do
         case $opt in
             u) USER=$OPTARG ;;
             d) TARGET=$OPTARG ;;
-            s) SERVER=$OPTARG ;;
+            s) resolve_server "$OPTARG" ;;
+            l) HOST_IP=$OPTARG ;;
+            p) check_zbx_port; exit 0 ;;
             h) usage ;;
             *) err "Invalid option: -$OPTARG" ;;
         esac
     done
-    [ -z "$SERVER" ] && err "Option -s <server> is required."
+    [ -z "$SERVER" ] && err "Option -s <server|group> is required."
 
     if [ -z "$TARGET" ]; then
         TARGET="$HOME"
@@ -102,7 +140,9 @@ check_environment() {
         err "Must be run as non-root user (sudo discouraged)."
     fi
 
-    for cmd in curl tar ip; do
+    [ -n "$USER" ] || err "Username cannot be empty."
+
+    for cmd in curl tar ip crontab; do
         command -v "$cmd" >/dev/null || err "$cmd is required but not installed."
     done
 
@@ -140,7 +180,7 @@ detect_os_arch() {
 
 
 download_package() {
-    cd "$TARGET" >/dev/null
+    cd "$TARGET" >/dev/null || err "Cannot enter target directory: $TARGET"
     for host in "${RES_SERVERS[@]}"; do
         URL="http://${host}/software/zabbix-7.0/agent/${ARCHIVE_NAME}"
         log "Attempting download from $URL"
@@ -163,13 +203,12 @@ extract_and_install() {
 
 
 detect_host_ip() {
+    [ -n "$HOST_IP" ] && return
     log "Detecting primary IP..."
     local ifname
     ifname="$(awk '$2 == "00000000" {print $1}' /proc/net/route | head -1)"
     if [ -z "$ifname" ]; then
-        log "No default route found, prompting for IP."
-        read -t 30 -p "Enter host primary IP: " -n 64 HOST_IP
-        [ -z "$HOST_IP" ] && err "Cannot detect or provide host IP."
+        err "Cannot detect host IP. Use -l <ip> to specify."
     else
         HOST_IP=$(ip addr show dev "$ifname" | grep -Eo "[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+" | head -1)
         [ -z "$HOST_IP" ] && err "Failed to retrieve host IP."
@@ -180,6 +219,7 @@ detect_host_ip() {
 
 configure_agent() {
     log "Configuring Zabbix agent..."
+    mkdir -p "${INST_DIR}/etc" || err "Cannot create config directory: ${INST_DIR}/etc"
     cat > "${INST_DIR}/etc/zabbix_agentd.conf" <<EOF
 PidFile=${INST_DIR}/zabbix_agentd.pid
 LogFile=${INST_DIR}/zabbix_agentd.log
@@ -211,7 +251,7 @@ EOF
 
 backup_crontab() {
     if crontab -l 2>/dev/null; then
-        BACKUP_FILE="${TARGET}/crontab_backup_$(date +'%Y%m%d%H%M%S').bak"
+        local BACKUP_FILE="${TARGET}/crontab_backup_$(date +'%Y%m%d%H%M%S').bak"
         crontab -l > "$BACKUP_FILE" && log "Crontab backed up to $BACKUP_FILE"
     else
         log "No existing crontab found."
