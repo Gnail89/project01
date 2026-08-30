@@ -189,6 +189,9 @@ main_build_task(){
         if [[ -n "$vmip" ]]; then
             zone=$(get_item_by_ip "$vmip" "$HYPERVISOR_FILE")
             voltype=$(get_item_by_ip "$vmip" "$VOL_TYPE_FILE")
+        else
+            zone="None"
+            voltype="None"
         fi
         if [ "$(grep -c "$img" "$IMAGES_FILE")" -eq 1 ]; then
             img=$(grep "$img" "$IMAGES_FILE")
