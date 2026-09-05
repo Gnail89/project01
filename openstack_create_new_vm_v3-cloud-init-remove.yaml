@@ -1,0 +1,56 @@
+#cloud-config
+power_state:
+  mode: poweroff
+  delay: +1
+  timeout: 60
+
+write_files:
+  - path: /usr/local/bin/purge-cloudinit.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # 幂等:已执行过则退出
+      [ -f /var/lib/cloudinit-purged ] && exit 0
+
+      # 1) 清理 cloud-init 实例数据与日志
+      cloud-init clean --logs 2>/dev/null || true
+
+      # 2) 卸载 cloud-init 软件包(按发行版)
+      if command -v dnf >/dev/null 2>&1; then
+          dnf remove -y cloud-init 2>/dev/null || true
+      elif command -v yum >/dev/null 2>&1; then
+          yum remove -y cloud-init 2>/dev/null || true
+      elif command -v apt-get >/dev/null 2>&1; then
+          apt-get purge -y cloud-init 2>/dev/null || true
+      elif command -v zypper >/dev/null 2>&1; then
+          zypper remove -y cloud-init 2>/dev/null || true
+      elif command -v pacman >/dev/null 2>&1; then
+          pacman -Rns --noconfirm cloud-init 2>/dev/null || true
+      else
+          rpm -e --nodeps cloud-init 2>/dev/null || true
+      fi
+
+      # 3) 禁用残留 systemd 服务
+      systemctl disable cloud-init.service \
+        cloud-init-local.service \
+        cloud-config.service \
+        cloud-final.service 2>/dev/null || true
+
+      # 4) 删除 cloud-init 数据目录与日志(黄金镜像标准)
+      rm -rf /var/lib/cloud /etc/cloud /run/cloud-init
+      rm -f /var/log/cloud-init.log /var/log/cloud-init-output.log \
+            /var/log/cloud-init*.log.* 2>/dev/null || true
+
+      # 5) 自毁:移除 cron 条目、删除脚本、写标记文件
+      crontab -l 2>/dev/null | grep -v 'purge-cloudinit.sh' | crontab - || true
+      rm -f /usr/local/bin/purge-cloudinit.sh
+      touch /var/lib/cloudinit-purged
+
+runcmd:
+  - [ bash, -c, 'systemctl disable cloud-init.service cloud-init-local.service cloud-config.service cloud-final.service 2>/dev/null; true' ]
+  # 1) crond 兜底: 开机自启 + 立即启动 (X方案, systemd + SysV 双轨)
+  - [ bash, -c, 'systemctl enable crond 2>/dev/null || chkconfig crond on 2>/dev/null; true' ]
+  # 2) 注册 @reboot 一次性清理(下次开机跑, cloud-init 生命周期已结束更安全)
+  - [ bash, -c, '( crontab -l 2>/dev/null; echo "@reboot /usr/local/bin/purge-cloudinit.sh" ) | crontab -' ]
+  # 3) 兜底关机制: power_state 失效时 2 分钟后关机(后台, 显式跨发行版)
+  - [ bash, -c, '( sleep 120; shutdown -h now ) &' ]
