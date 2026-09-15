@@ -311,6 +311,7 @@ main_vm_task(){
             process_vm_line "$line"
         } &
         pids+=($!)
+        sleep 1
     done < "$infile"
 
     for pid in "${pids[@]}"; do
