@@ -28,9 +28,16 @@ check_volumes(){
     local retries=$1 count=0 vol_ids=("${@:2}")
     for ((i=0; i<retries; i++)); do
         count=0
-        for vid in "${vol_ids[@]}"; do
+        # 空数组守卫: bash 4.2 + set -u 下空数组展开会报 unbound variable
+        for vid in ${vol_ids[@]+"${vol_ids[@]}"}; do
             [[ -z "$vid" || "$vid" == "None" ]] && log ERROR "无效的卷ID"
-            local st; st=$(openstack volume show -f value --column status "$vid")
+            # 两段式命令替换: 显式区分"查询失败"与"卷未就绪"
+            local st rc=0
+            st=$(openstack volume show -f value --column status "$vid" 2>/dev/null) || rc=$?
+            if [[ $rc -ne 0 ]]; then
+                log WARN "卷状态查询失败(exit=$rc), 稍后重试: $vid"
+                continue
+            fi
             case "$st" in
                 available) count=$((count+1)) ;;
                 error*) log ERROR "卷状态显示error, ID: $vid" ;;
@@ -77,9 +84,12 @@ create_boot_volume(){
 
 create_data_vols(){
     local name=$1 size_list=$2 type=$3
-    [[ -z "$name" || -z "$size_list" || -z "$type" ]] && log ERROR "缺少卷创建参数"
+    [[ -z "$name" || -z "$type" ]] && log ERROR "缺少卷创建参数"
+    # 空数据盘字段视为"无数据盘", 直接返回而非报错
+    [[ -z "$size_list" ]] && return 0
     IFS="$DATA_SEPARATOR" read -r -a sizes <<<"$size_list"
-    for s in "${sizes[@]}"; do
+    # 空数组守卫: bash 4.2 + set -u 下空数组展开会报 unbound variable
+    for s in ${sizes[@]+"${sizes[@]}"}; do
         [[ $s -le 0 ]] && continue
         local vol_name="${name}-datavol-${s}"
         log INFO "创建数据卷: $vol_name"
@@ -93,15 +103,25 @@ create_data_vols(){
 }
 
 ip_in_use(){
-    local ip=$1
-    [[ $(openstack server list --ip "${ip}$" -f value 2>/dev/null | wc -l) -ne 0 ]]
+    local ip=$1 rc=0 out
+    # 两段式命令替换: 显式区分"查询失败"与"确实空闲"。
+    # 查询失败时按保守方向判定为"可能已占用"(返回真), 避免误判空闲导致IP冲突。
+    out=$(openstack server list --ip "${ip}$" -f value 2>/dev/null) || rc=$?
+    if [[ $rc -ne 0 ]]; then
+        log WARN "IP占用查询失败(exit=$rc), 保守判定为可能已占用: $ip"
+        return 0
+    fi
+    [[ -n "$out" ]]
 }
 
+# 将卷ID列表转换为 nova boot 所需的块设备参数, 逐行输出到stdout。
+# 不使用数组名传参(bash 4.2 不支持 nameref, 且原实现写入局部副本导致回填失效),
+# 由调用方按行读入自己的数组。
 build_bdevs(){
-    local -n out=$1; shift
-    local n=0
+    local n=0 vid
     for vid in "$@"; do
-        out+=(--block-device "source=volume,id=${vid},dest=volume,shutdown=preserve,bootindex=${n}")
+        printf '%s\n' "--block-device"
+        printf '%s\n' "source=volume,id=${vid},dest=volume,shutdown=preserve,bootindex=${n}"
         n=$((n+1))
     done
 }
@@ -113,10 +133,12 @@ nova_boot(){
     if [[ -n "${rc:-}" ]]; then
         log ERROR "nova boot 执行失败 (exit=$rc)"
     fi
-    id=$(awk -F'|' '$2 ~ / id / {gsub(/[ ]/,"",$3); print $3; exit}' <<<"$out")
-    [[ -z "$id" ]] && log ERROR "nova boot 输出未解析到实例 ID"
-    [[ "$id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] \
-        || log ERROR "解析到的实例 ID 非 UUID: $id"
+    # 提取首个合法 UUID, 不依赖表头文本大小写或列位置。
+    # 末尾 || true: 避免 grep 无匹配时因 pipefail 触发 ERR trap 而绕过下方报错。
+    id=$(grep -oE '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' <<<"$out" | head -n1 || true)
+    if [[ -z "$id" ]]; then
+        log ERROR "nova boot 输出未解析到实例 ID, 原始输出: $out"
+    fi
     printf '%s\n' "$id"
 }
 
@@ -125,7 +147,15 @@ wait_server_active(){
     local interval="${VM_WAIT_INTERVAL:-15}" timeout="${VM_WAIT_TIMEOUT:-600}"
     local waited=0 st slow_flag=0 abn_flag=0 first=1
     while (( waited < timeout )); do
-        st=$(openstack server show -c status -f value "$id")
+        # 两段式命令替换: 单次查询失败不终止, 记录后继续重试
+        local rc=0
+        st=$(openstack server show -c status -f value "$id" 2>/dev/null) || rc=$?
+        if [[ $rc -ne 0 ]]; then
+            log WARN "实例状态查询失败(exit=$rc), 稍后重试: $id"
+            sleep "$interval"
+            waited=$((waited + interval))
+            continue
+        fi
         [[ "$st" == "ERROR" ]] && log ERROR "实例 $id 状态为 ERROR, 启动失败"
         [[ "$st" == "ACTIVE" ]] && { echo ok; return 0; }
         if (( first == 1 )); then
@@ -149,7 +179,15 @@ wait_server_shutoff(){
     local interval="${VM_STOP_INTERVAL:-15}" timeout="${VM_STOP_TIMEOUT:-300}"
     local waited=0 st
     while (( waited < timeout )); do
-        st=$(openstack server show -c status -f value "$id")
+        # 两段式命令替换: 单次查询失败不终止, 记录后继续重试
+        local rc=0
+        st=$(openstack server show -c status -f value "$id" 2>/dev/null) || rc=$?
+        if [[ $rc -ne 0 ]]; then
+            log WARN "实例状态查询失败(exit=$rc), 稍后重试: $id"
+            sleep "$interval"
+            waited=$((waited + interval))
+            continue
+        fi
         [[ "$st" == "ERROR" ]] && log ERROR "实例 $id 状态为 ERROR, 关机失败"
         [[ "$st" == "SHUTOFF" ]] && { echo ok; return 0; }
         sleep "$interval"
@@ -179,7 +217,10 @@ boot_instance(){
     local name=$1 ip=$2 flavor=$3 net=$4 zone=$5; shift 5
     local vol_ids=("$@") bdevs=()
     [[ -z "$name" || -z "$ip" || -z "$flavor" || -z "$net" || -z "$zone" ]] && log ERROR "缺少启动参数"
-    build_bdevs bdevs "${vol_ids[@]}"
+    # 逐行读入块设备参数(bash 4.2 无 mapfile); 空卷集合时 bdevs 保持为空
+    local _bd_line
+    while IFS= read -r _bd_line; do bdevs+=("$_bd_line"); done \
+        < <(build_bdevs ${vol_ids[@]+"${vol_ids[@]}"})
     if ip_in_use "$ip"; then
         log INFO "虚拟机IP已使用, 忽略启动"
         return 0
@@ -190,7 +231,7 @@ boot_instance(){
         --flavor "$flavor" \
         --nic "net-id=${net},v4-fixed-ip=${ip}" \
         --availability-zone "$zone" \
-        "${bdevs[@]}" \
+        ${bdevs[@]+"${bdevs[@]}"} \
         "$name")
     wait_server_active "$id"
     return 0
@@ -200,7 +241,10 @@ cfgdrive_two_stage(){
     local name=$1 ip=$2 flavor=$3 net=$4 zone=$5; shift 5
     local vol_ids=("$@") bdevs=()
     [[ -z "$name" || -z "$ip" || -z "$flavor" || -z "$net" || -z "$zone" ]] && log ERROR "缺少启动参数"
-    build_bdevs bdevs "${vol_ids[@]}"
+    # 逐行读入块设备参数(bash 4.2 无 mapfile); 空卷集合时 bdevs 保持为空
+    local _bd_line
+    while IFS= read -r _bd_line; do bdevs+=("$_bd_line"); done \
+        < <(build_bdevs ${vol_ids[@]+"${vol_ids[@]}"})
 
     # 第一阶段
     if ip_in_use "$ip"; then
@@ -215,7 +259,7 @@ cfgdrive_two_stage(){
         --flavor "$flavor" \
         --nic "net-id=${net},v4-fixed-ip=${ip}" \
         --availability-zone "$zone" \
-        "${bdevs[@]}" \
+        ${bdevs[@]+"${bdevs[@]}"} \
         "$name")
     wait_server_active "$id"
     log INFO "config-drive 实例已 ACTIVE: $name"
@@ -257,7 +301,7 @@ cfgdrive_two_stage(){
         --flavor "$flavor" \
         --nic "net-id=${net},v4-fixed-ip=${ip}" \
         --availability-zone "$zone" \
-        "${bdevs[@]}" \
+        ${bdevs[@]+"${bdevs[@]}"} \
         "$name")
     local ret
     ret=$(wait_server_active "$id")
@@ -269,19 +313,28 @@ process_vm_line(){
     local line=$1
     local vol_ids=()
     IFS=',' read -r image cpu_mem sys data name vlan ip zone voltype <<<"$line"
-    trap 'rc=$?; [[ $rc -ne 0 ]] && cleanup_vols "${vol_ids[@]}"; echo >&9' EXIT
+    # 空数组守卫: bash 4.2 + set -u 下 vol_ids 可能为空
+    trap 'rc=$?; [[ $rc -ne 0 ]] && cleanup_vols ${vol_ids[@]+"${vol_ids[@]}"}; echo >&9' EXIT
     vol_ids+=( $(create_boot_volume "$name" "$sys" "$image" "${voltype:-None}") )
     vol_ids+=( $(create_data_vols "$name" "$data" "${voltype:-None}") )
-    local netid; netid=$(openstack network list -f csv --column ID --column Name |grep -w "${vlan}" |awk -F'\"' '{print $2}')
+    # 卷集合为空(启动卷创建失败) => 该VM流程失败; 显式拦截, 避免空数组展开崩溃
+    [[ ${#vol_ids[@]} -eq 0 ]] && log ERROR "卷集合为空, 终止当前VM: $name"
+    # 按VLAN名查网络: 命令失败或无匹配时明确报错终止该VM, 不静默以空值继续
+    local netid rc=0
+    netid=$(openstack network list -f csv --column ID --column Name 2>/dev/null \
+        | grep -w "${vlan}" | awk -F'\"' '{print $2}' | head -n1) || rc=$?
+    if [[ $rc -ne 0 || -z "$netid" ]]; then
+        log ERROR "网络查找失败或不存在: VLAN=${vlan}, VM=${name}"
+    fi
     local vols_ready
-    vols_ready=$(check_volumes 30 "${vol_ids[@]}")
+    vols_ready=$(check_volumes 30 ${vol_ids[@]+"${vol_ids[@]}"})
     if [[ "$vols_ready" != "ok" ]]; then
         log ERROR "卷创建后未就绪, 终止当前VM: $name"
     fi
     if [[ "$CFGDRIVE" == "1" ]]; then
-        cfgdrive_two_stage "$name" "$ip" "$cpu_mem" "$netid" "$zone" "${vol_ids[@]}"
+        cfgdrive_two_stage "$name" "$ip" "$cpu_mem" "$netid" "$zone" ${vol_ids[@]+"${vol_ids[@]}"}
     else
-        boot_instance "$name" "$ip" "$cpu_mem" "$netid" "$zone" "${vol_ids[@]}"
+        boot_instance "$name" "$ip" "$cpu_mem" "$netid" "$zone" ${vol_ids[@]+"${vol_ids[@]}"}
     fi
     return 0
 }
@@ -314,7 +367,8 @@ main_vm_task(){
         sleep 1
     done < "$infile"
 
-    for pid in "${pids[@]}"; do
+    # 空数组守卫: bash 4.2 + set -u 下 "${pids[@]}" 对空数组会报 unbound variable
+    for pid in ${pids[@]+"${pids[@]}"}; do
         if wait "$pid"; then
             :
         else
@@ -338,19 +392,37 @@ main_vm_task(){
 
 get_item_by_ip() {
     local ip="$1" file="$2"
+    local last="${ip##*.}"
+    # 候选清单不可读: 告警并降级为不指定
     if [ ! -r "$file" ]; then
         log WARN "无法访问文件: $file"
         echo -n "None"
         return 0
     fi
-    local valid_items=$(awk '!/^#|^$/ {print $1}' "$file")
-    local item_count=$(echo "$valid_items" | wc -l)
-    if [ "$item_count" -gt 0 ]; then
-        local index=$(( (${ip##*.} % item_count) + 1 ))
-        echo -n "$(echo "$valid_items" | sed -n "${index}p")"
-    else
+    # IP 末段非数值: 无法做取模选择, 降级为不指定(避免算术求值 unbound)
+    if ! [[ "$last" =~ ^[0-9]+$ ]]; then
+        log WARN "IP末段非数值, 无法选择宿主机/卷类型, 降级为不指定: $ip"
         echo -n "None"
+        return 0
     fi
+    # 两段式命令替换; 过滤注释与空行后按行统计, 避免空内容被 wc -l 记为 1
+    local valid_items rc=0
+    valid_items=$(awk '!/^[[:space:]]*#/ && NF {print $1}' "$file" 2>/dev/null) || rc=$?
+    if [[ $rc -ne 0 ]]; then
+        log WARN "读取候选清单失败(exit=$rc), 降级为不指定: $file"
+        echo -n "None"
+        return 0
+    fi
+    local item_count=0
+    [[ -n "$valid_items" ]] && item_count=$(printf '%s\n' "$valid_items" | wc -l)
+    # 候选清单为空: 不误选
+    if [ "$item_count" -le 0 ]; then
+        log WARN "候选清单为空, 降级为不指定: $file"
+        echo -n "None"
+        return 0
+    fi
+    local index=$(( (last % item_count) + 1 ))
+    printf '%s' "$(printf '%s\n' "$valid_items" | sed -n "${index}p")"
     return 0
 }
 
@@ -405,21 +477,23 @@ main_review_task(){
     while IFS=',' read -r img flavor sys data name net vmip zone voltype; do
         [[ -z "$img" || -z "$flavor" || -z "$sys" || -z "$data" || -z "$name" || -z "$net" || -z "$vmip" ]] && continue
         [[ "$img" =~ ^(#|$) ]] && continue
-        if ! [[ " ${cluster_images[@]} " =~ " ${img} " ]]; then
+        # 空集合守卫: bash 4.2 + set -u 下空数组展开会报 unbound variable
+        if ! [[ " ${cluster_images[@]+"${cluster_images[@]}"} " =~ " ${img} " ]]; then
             log WARN "镜像不存在: ${img} (IP: $vmip)"
         fi
-        if ! [[ " ${cluster_flavors[@]} " =~ " ${flavor} " ]]; then
+        if ! [[ " ${cluster_flavors[@]+"${cluster_flavors[@]}"} " =~ " ${flavor} " ]]; then
             log WARN "规格不存在: ${flavor} (IP: $vmip)"
         fi
-        if ! [[ " ${cluster_vlans[@]} " =~ " ${net} " ]]; then
+        if ! [[ " ${cluster_vlans[@]+"${cluster_vlans[@]}"} " =~ " ${net} " ]]; then
             log WARN "网络不存在: ${net} (IP: $vmip)"
         fi
-        if ! [[ " ${cluster_voltypes[@]} " =~ " ${voltype} " ]]; then
+        if ! [[ " ${cluster_voltypes[@]+"${cluster_voltypes[@]}"} " =~ " ${voltype} " ]]; then
             log WARN "卷类型不存在: ${voltype} (IP: $vmip)"
         fi
         IFS="$DATA_SEPARATOR" read -r -a sizes <<<"$data"
         #local arr=(${data//${DATA_SEPARATOR}/ })
-        for size in "${sizes[@]}"; do
+        # 空数组守卫: bash 4.2 + set -u 下空数组展开会报 unbound variable
+        for size in ${sizes[@]+"${sizes[@]}"}; do
             if ! [[ "$size" =~ ^[0-9]+$ ]]; then
                 log WARN "数据盘格式检测异常: $size (IP: $vmip), 间隔符号为: ${DATA_SEPARATOR}"
             fi
