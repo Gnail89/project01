@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# swift_pull_objects.py — 健壮的 Swift 2.2 (OpenStack Object Storage) 对象名列表拉取脚本。
-#
-# 由 OpenSpec change `convert-swift-puller-to-python` 实现，为
-# `swift_api_pull_objects.sh` 的纯 Python 3 标准库等价替代（无第三方依赖）。
-# 行为契约见 openspec/specs/swift-object-pull/spec.md。
+# swift_api_pull_objects.py — 健壮的 Swift 2.2 (OpenStack Object Storage) 对象清单拉取脚本。
 #
 # 用法:
-#   swift_pull_objects.py <container_list_file>
+#   swift_api_pull_objects.py <container_list_file>
 #
 # 容器列表文件: 每行一个容器名; 空行与 '#' 注释行被忽略; 重复容器名被去重。
 #
 # 输出（每容器两个文件，位于当前工作目录）:
-#   <container>.list   — 每行一个纯对象名（仅成功解析后追加）
-#   <container>.marker — 仅保存当前成功翻页后的 marker 值（断点续传）
+#   <container>.list   — JSONL, 每行一个对象的原生字段（仅成功解析后追加）
+#                        字段固定顺序: name, hash, bytes, content_type, last_modified
+#                        即使接口返回多余字段也不输出; 文件以 UTF-8 编码、非 ASCII 原样保存
+#   <container>.marker — JSONL 单行断点（覆盖式）, 形如:
+#                        {"marker":"<最后对象名>","updated_at":"<UTC ISO8601>","limit":N,"count":N}
+#                        marker 为原始未 URL 编码的对象名, 续传前再编码; 空页不更新
+#
+# 【BREAKING】本脚本的输出格式与旧版纯文本不兼容。
+#   文件按「任务周期」由调用方管理:
+#     - 开始全新任务前: 清空 <container>.list 并移除 <container>.marker
+#     - 同一任务周期内（含中断后重启续传）: 两者保留
+#   脚本本身不检测、不删除、不主动清空任何输出文件:
+#     - .list   仅以追加(a)方式写入, 从不读取
+#     - .marker 以覆盖(w)方式写入断点单行, 不删除文件、不主动置空
+#
+# 边界: 本脚本仅执行平铺列举, 请求不带 delimiter/path 参数,
+#       因此不会出现 Swift 分层列举产生的 {"subdir": ...} 目录折叠项。
 #
 # 需要环境变量（必需，缺一即报错退出）:
 #   SWIFT_TENANT_NAME  SWIFT_USER_NAME  SWIFT_PASS  SWIFT_ACCOUNT_ID  SWIFT_AUTH_URL
@@ -34,6 +45,7 @@
 # 说明: SWIFT_LIMIT 过大时单页响应体可达数 MB（全部读入内存），
 #       需内存敏感场景可调小 SWIFT_LIMIT 缓解。
 
+import datetime
 import http.client
 import json
 import os
@@ -43,6 +55,8 @@ import time
 from urllib.parse import quote, urlsplit
 
 CONTAINER_LISTING_LIMIT = 10000  # Swift 2.2 constraints.CONTAINER_LISTING_LIMIT
+
+LIST_FIELDS = ("name", "hash", "bytes", "content_type", "last_modified")
 
 REQUIRED_ENV_VARS = (
     "SWIFT_TENANT_NAME",
@@ -201,18 +215,72 @@ def auth(cfg, storage_url):
 
 
 def parse_objects(body):
-    """解析 format=json 对象列表，返回名字列表；失败返回 None（绝不当作空列表）。"""
+    """解析 format=json 对象列表，返回条目 dict 列表；失败返回 None（绝不当作空列表）。
+
+    缺 name 字段的条目（理论上仅在分层列举时出现）被跳过并告警，不中断整页。
+    """
     try:
         data = json.loads(body)
     except ValueError:
         return None
     if not isinstance(data, list):
         return None
-    names = []
+    entries = []
     for entry in data:
         if isinstance(entry, dict) and "name" in entry:
-            names.append(entry["name"])
-    return names
+            entries.append(entry)
+        else:
+            log("告警: 跳过缺少 name 字段的条目: %r" % (entry,))
+    return entries
+
+
+def serialize_list_entry(entry):
+    """将单条原生 entry 序列化为 .list 的一行 JSONL。
+
+    仅取五个原生字段并按固定顺序重建，丢弃其余字段；ensure_ascii=False 保证
+    非 ASCII 原样保存。
+    """
+    ordered = {k: entry[k] for k in LIST_FIELDS}
+    return json.dumps(ordered, ensure_ascii=False, separators=(",", ":"))
+
+
+def serialize_marker(marker, limit, count):
+    """构造 .marker 的单行 JSONL 断点（UTC ISO8601 时间戳）。"""
+    payload = {
+        "marker": marker,
+        "updated_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "limit": limit,
+        "count": count,
+    }
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def read_marker(marker_file):
+    """读取 .marker 断点，返回非空字符串 marker；无有效断点返回空字符串。
+
+    容错（均按无有效断点处理，从容器起始拉取，不报错）:
+      - 文件不存在（全新任务常态）
+      - 内容为空
+      - 内容不是合法 JSON
+      - 虽是合法 JSON 但不含非空字符串 marker 字段
+    """
+    if not os.path.isfile(marker_file) or os.path.getsize(marker_file) == 0:
+        return ""
+    try:
+        with open(marker_file, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+    except (OSError, UnicodeError):
+        return ""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    marker = data.get("marker")
+    if not isinstance(marker, str) or not marker:
+        return ""
+    return marker
 
 
 def pull_container(cfg, name):
@@ -237,10 +305,9 @@ def pull_container(cfg, name):
             return 2
         time.sleep(1)
 
-    marker = ""
-    if os.path.isfile(marker_file) and os.path.getsize(marker_file) > 0:
-        with open(marker_file, "r", encoding="utf-8") as fh:
-            marker = fh.read()
+    marker = read_marker(marker_file)
+    if marker:
+        log("容器 %s: 从断点继续: %s" % (name, marker))
 
     while True:
         page_url = "%s/%s?format=json&limit=%d" % (storage_url.rstrip("/"), name, cfg["limit"])
@@ -267,22 +334,22 @@ def pull_container(cfg, name):
                 continue
 
             if status == 200:
-                names = parse_objects(body)
-                if names is None:
+                entries = parse_objects(body)
+                if entries is None:
                     if hand >= cfg["retries"]:
                         log("容器 %s: HTTP 200 但 JSON 解析失败，重试耗尽，跳过该容器。" % name)
                         return 1
                     hand += 1
                     time.sleep(1)
                     continue
-                count = len(names)
+                count = len(entries)
                 if count > 0:
                     with open(list_file, "a", encoding="utf-8") as fh:
-                        for n in names:
-                            fh.write(n + "\n")
-                    marker = names[-1]
+                        for entry in entries:
+                            fh.write(serialize_list_entry(entry) + "\n")
+                    marker = entries[-1]["name"]
                     with open(marker_file, "w", encoding="utf-8") as fh:
-                        fh.write(marker)
+                        fh.write(serialize_marker(marker, cfg["limit"], count) + "\n")
                 if count < cfg["limit"]:
                     log("容器 %s: 拉取完成（末页 %d 个对象，共翻页结束）。" % (name, count))
                     return 0
